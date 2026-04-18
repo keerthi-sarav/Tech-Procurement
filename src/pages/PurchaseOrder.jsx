@@ -160,12 +160,21 @@ export default function PurchaseOrder() {
                           <input name={f} value={l[f]||''} onChange={e=>handleLine(i,e)} readOnly={readOnly} className={`w-full px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none focus:ring-1 focus:ring-[#1a56db]/40 ${readOnly?'bg-transparent border-transparent':''}`}/>
                         </td>
                       ))}
-                      {['quantity','rate','tax_percent','discount_percent'].map(f=>(
+                      <td className="px-3 py-2">
+                        <input name="quantity" type="number" step="0.01" value={l.quantity||0} onChange={e=>handleLine(i,e)} readOnly={readOnly} className={`w-16 px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none ${readOnly?'bg-transparent border-transparent':''}`}/>
+                      </td>
+                      <td className="px-3 py-2">
+                        {readOnly
+                          ? <span className="text-sm text-[#374151]">{l.uom}</span>
+                          : <select name="uom" value={l.uom} onChange={e=>handleLine(i,e)} className="px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none focus:ring-1 focus:ring-[#1a56db]/40 bg-white">
+                              {['Nos','Kg','Ltrs','Mtrs','Box','Set','Service'].map(u=><option key={u}>{u}</option>)}
+                            </select>}
+                      </td>
+                      {['rate','tax_percent','discount_percent'].map(f=>(
                         <td key={f} className="px-3 py-2">
                           <input name={f} type="number" step="0.01" value={l[f]||0} onChange={e=>handleLine(i,e)} readOnly={readOnly} className={`w-20 px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none ${readOnly?'bg-transparent border-transparent':''}`}/>
                         </td>
                       ))}
-                      <select name="uom" value={l.uom} onChange={e=>handleLine(i,e)} disabled={readOnly} className="hidden"></select>
                       <td className="px-3 py-2 font-semibold text-[#1a56db] whitespace-nowrap">₹{(l.total_amount||0).toFixed(2)}</td>
                       <td className="px-3 py-2">{!readOnly&&form.line_items.length>1&&(<button type="button" onClick={()=>removeLine(i)} className="p-1 rounded hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={13}/></button>)}</td>
                     </tr>
