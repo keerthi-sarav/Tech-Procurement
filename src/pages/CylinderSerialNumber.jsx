@@ -56,12 +56,6 @@ export default function CylinderSerialNumber() {
     finally{setLoading(false);}
   };
 
-  const handleDelete = async (sn) => {
-    if (!confirm('Delete this cylinder record?')) return;
-    await fetch(`/api/cylinder-registry/${sn}`,{method:'DELETE'});
-    await fetchRecords(); showMsg('Deleted.');
-  };
-
   const filtered = records.filter(r=>{
     const matchSearch = r.serial_number?.toLowerCase().includes(search.toLowerCase())||
       r.barcode?.toLowerCase().includes(search.toLowerCase())||
@@ -79,7 +73,14 @@ export default function CylinderSerialNumber() {
             <h2 className="text-xl font-bold text-[#111827]">{mode==='view'?'Cylinder Details':mode==='edit'?'Edit Cylinder':'Register New Cylinder'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">Unique cylinder asset tracking by serial number</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <button type="submit" disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] disabled:opacity-60">
+                <Save size={15}/>{loading?'Saving...':mode==='edit'?'Update':'Register Cylinder'}
+              </button>
+            )}
+            <button type="button" onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          </div>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm space-y-4">
@@ -126,12 +127,7 @@ export default function CylinderSerialNumber() {
                 <input name="purchase_id" value={form.purchase_id||''} onChange={handleField} readOnly={readOnly}
                   className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none ${readOnly?'bg-[#f9fafb]':'bg-white'}`}/></div>
             </div>
-            {!readOnly&&(<div className="flex justify-end gap-3 mt-4">
-              <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6]">Cancel</button>
-              <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] disabled:opacity-60">
-                <Save size={15}/>{loading?'Saving...':mode==='edit'?'Update':'Register Cylinder'}
-              </button>
-            </div>)}
+
           </div>
         </form>
       </div>
@@ -203,7 +199,6 @@ export default function CylinderSerialNumber() {
                     <div className="flex gap-1.5">
                       <button onClick={()=>{setForm(r);setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
                       <button onClick={()=>{setForm(r);setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]"><Edit2 size={14}/></button>
-                      <button onClick={()=>handleDelete(r.serial_number)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={14}/></button>
                     </div>
                   </td>
                 </tr>

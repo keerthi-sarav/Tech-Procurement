@@ -37,14 +37,39 @@ def create_invoice(inv: PurchaseInvoiceCreate):
         cursor.execute(
             """INSERT INTO purchase_invoices
                (invoice_number, vendor_id, vendor_name, invoice_date, grn_number, po_number,
-                subtotal, tax_percent, tax_amount, total_amount, payment_status, due_date, remarks)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                subtotal, tax_percent, tax_amount, total_amount, payment_status, due_date, remarks, status)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (inv.invoice_number, inv.vendor_id, inv.vendor_name, inv.invoice_date, inv.grn_number,
              inv.po_number, inv.subtotal, inv.tax_percent, inv.tax_amount, inv.total_amount,
-             inv.payment_status, inv.due_date, inv.remarks)
+             inv.payment_status, inv.due_date, inv.remarks, inv.status)
         )
         conn.commit()
         cursor.execute("SELECT * FROM purchase_invoices WHERE id = LAST_INSERT_ID()")
+        return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@router.put("/purchase-invoices/{invoice_number}")
+def update_invoice(invoice_number: str, inv: PurchaseInvoiceCreate):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """UPDATE purchase_invoices SET
+               vendor_id=%s, vendor_name=%s, invoice_date=%s, grn_number=%s, po_number=%s,
+               subtotal=%s, tax_percent=%s, tax_amount=%s, total_amount=%s, payment_status=%s, due_date=%s, remarks=%s, status=%s
+               WHERE invoice_number=%s""",
+            (inv.vendor_id, inv.vendor_name, inv.invoice_date, inv.grn_number,
+             inv.po_number, inv.subtotal, inv.tax_percent, inv.tax_amount, inv.total_amount,
+             inv.payment_status, inv.due_date, inv.remarks, inv.status, invoice_number)
+        )
+        conn.commit()
+        cursor.execute("SELECT * FROM purchase_invoices WHERE invoice_number = %s", (invoice_number,))
         return cursor.fetchone()
     except Exception as e:
         conn.rollback()

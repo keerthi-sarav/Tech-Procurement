@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, Truck } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Truck, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 
 function genGRN() { return `GRN-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
@@ -13,7 +13,7 @@ const emptyForm = () => ({
   receipt_date: new Date().toISOString().split('T')[0],
   warehouse_location: '',
   qc_required: 'No',
-  status: 'Received',
+  status: 'Draft',
   line_items: [emptyLine()],
 });
 
@@ -34,6 +34,34 @@ export default function GoodsReceiptNote() {
     setForm(f=>({...f,vendor_id:id,vendor_name:v?.vendor_name||''}));
   };
 
+  const handlePOChange = (e) => {
+    const po_number = e.target.value;
+    const po = pos.find(p => p.po_number === po_number);
+    if (po) {
+      const newLineItems = po.line_items?.length
+        ? po.line_items.map(l => ({
+            item_code: l.item_code || '',
+            item_name: l.item_name || '',
+            ordered_qty: parseFloat(l.quantity || 0),
+            received_qty: 0,
+            rejected_qty: 0,
+            accepted_qty: 0,
+            uom: l.uom || 'Nos',
+            remarks: '',
+          }))
+        : [emptyLine()];
+      setForm(f => ({
+        ...f,
+        po_number,
+        vendor_id: po.vendor_id || f.vendor_id,
+        vendor_name: po.vendor_name || f.vendor_name,
+        line_items: newLineItems,
+      }));
+    } else {
+      setForm(f => ({ ...f, po_number }));
+    }
+  };
+
   const handleLine = (i, e) => {
     const lines = [...form.line_items];
     lines[i] = {...lines[i], [e.target.name]: e.target.value};
@@ -45,20 +73,17 @@ export default function GoodsReceiptNote() {
   const addLine = () => setForm(f=>({...f, line_items:[...f.line_items, emptyLine()]}));
   const removeLine = (i) => setForm(f=>({...f, line_items:f.line_items.filter((_,idx)=>idx!==i)}));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const handleAction = async (actionStatus) => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/goods-receipts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,line_items:form.line_items.filter(l=>l.item_name)})});
+      const payload = {...form, status: actionStatus, line_items:form.line_items.filter(l=>l.item_name)};
+      const url = mode==='edit'?`/api/goods-receipts/${form.grn_number}`:'/api/goods-receipts';
+      const method = mode==='edit'?'PUT':'POST';
+      const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if (!res.ok) throw new Error(await res.text());
-      await fetchGRNs(); showMsg('GRN created!'); setMode('list');
+      await fetchGRNs(); showMsg(`GRN ${actionStatus === 'Posted' ? 'posted' : 'saved'}!`); setMode('list');
     } catch(err){showMsg('Error: '+err.message,'error');}
     finally{setLoading(false);}
-  };
-
-  const handleDelete = async (grn_number) => {
-    if (!confirm('Delete this GRN?')) return;
-    await fetch(`/api/goods-receipts/${grn_number}`,{method:'DELETE'});
-    await fetchGRNs(); showMsg('GRN deleted.');
   };
 
   const filtered = grns.filter(g=>g.grn_number?.toLowerCase().includes(search.toLowerCase())||g.vendor_name?.toLowerCase().includes(search.toLowerCase()));
@@ -72,16 +97,28 @@ export default function GoodsReceiptNote() {
             <h2 className="text-xl font-bold text-[#111827]">{mode==='view'?'GRN Details':'New Goods Receipt Note'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">{mode==='view'?'Viewing receipt details':'Record materials received from vendor'}</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this GRN? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-[#374151] mb-4 flex items-center gap-2"><Truck size={15} className="text-[#1a56db]"/>Receipt Details</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">GRN Number</label>
                 <input value={form.grn_number} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]"/></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">PO Reference</label>
-                <select name="po_number" value={form.po_number||''} onChange={handleField} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
+                <select name="po_number" value={form.po_number||''} onChange={handlePOChange} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
                   <option value="">None</option>{pos.map(p=><option key={p.po_number} value={p.po_number}>{p.po_number}</option>)}
                 </select></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Vendor</label>
@@ -101,6 +138,9 @@ export default function GoodsReceiptNote() {
                     </label>
                   ))}
                 </div>
+              </div>
+              <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
+                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]" />
               </div>
             </div>
           </div>
@@ -142,12 +182,7 @@ export default function GoodsReceiptNote() {
             </div>
           </div>
 
-          {!readOnly&&(<div className="flex justify-end gap-3">
-            <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6] transition-colors">Cancel</button>
-            <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] disabled:opacity-60">
-              <Save size={15}/>{loading?'Saving...':'Create GRN'}
-            </button>
-          </div>)}
+
         </form>
       </div>
     );
@@ -183,11 +218,13 @@ export default function GoodsReceiptNote() {
                   <td className="px-5 py-3.5 text-[#374151]">{g.receipt_date}</td>
                   <td className="px-5 py-3.5 text-[#6b7280]">{g.warehouse_location||'—'}</td>
                   <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${g.qc_required==='Yes'?'bg-[#fef3c7] text-[#d97706]':'bg-[#f3f4f6] text-[#6b7280]'}`}>{g.qc_required}</span></td>
-                  <td className="px-5 py-3.5"><span className="px-2.5 py-1 bg-[#dcfce7] text-[#16a34a] rounded-full text-xs font-medium">{g.status}</span></td>
+                  <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${g.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#fef3c7] text-[#d97706]'}`}>{g.status || 'Received'}</span></td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
-                      <button onClick={()=>{setForm({...g,line_items:g.line_items||[]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
-                      <button onClick={()=>handleDelete(g.grn_number)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={14}/></button>
+                      <button onClick={()=>{setForm({...g,line_items:g.line_items||[]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]" title="View"><Eye size={14}/></button>
+                      {g.status !== 'Posted' && (
+                        <button onClick={()=>{setForm({...g,line_items:g.line_items||[]});setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]" title="Edit"><Edit2 size={14}/></button>
+                      )}
                     </div>
                   </td>
                 </tr>

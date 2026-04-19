@@ -43,11 +43,11 @@ def create_quotation(q: VendorQuotationCreate):
         cursor.execute(
             """INSERT INTO vendor_quotations
                (quote_number, rfq_number, vendor_id, vendor_name, quote_date, rate, delivery_days,
-                payment_terms, item_code, item_name, quantity, uom, total_amount, remarks)
-               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                payment_terms, item_code, item_name, quantity, uom, total_amount, remarks, status)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (q.quote_number, q.rfq_number, q.vendor_id, q.vendor_name, q.quote_date, q.rate,
              q.delivery_days, q.payment_terms, q.item_code, q.item_name, q.quantity, q.uom,
-             q.total_amount, q.remarks)
+             q.total_amount, q.remarks, q.status)
         )
         conn.commit()
         cursor.execute("SELECT * FROM vendor_quotations WHERE id = LAST_INSERT_ID()")

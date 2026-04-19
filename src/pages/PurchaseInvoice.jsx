@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Eye, Save, X, Receipt, CreditCard, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Receipt, CreditCard, CheckCircle, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 
 function genInvNum() { return `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
@@ -17,6 +17,7 @@ const emptyForm = () => ({
   total_amount: 0,
   payment_status: 'Unpaid',
   due_date: '',
+  status: 'Draft',
   remarks: '',
 });
 
@@ -57,12 +58,42 @@ export default function PurchaseInvoice() {
     setForm(f=>({...f, vendor_id:id, vendor_name:v?.vendor_name||''}));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const handleGRNChange = (e) => {
+    const grn_number = e.target.value;
+    const grn = grns.find(g => g.grn_number === grn_number);
+    if (grn) {
+      // Calculate subtotal from accepted items in the linked PO
+      const linkedPO = pos.find(p => p.po_number === grn.po_number);
+      const subtotal = linkedPO?.total_amount || grn.line_items?.reduce((sum, l) => {
+        const accepted = parseFloat(l.accepted_qty || 0);
+        const rate = parseFloat(l.rate || 0);
+        return sum + (accepted * rate);
+      }, 0) || 0;
+      const tax = (subtotal * 18) / 100;
+      setForm(f => ({
+        ...f,
+        grn_number,
+        vendor_id: grn.vendor_id || f.vendor_id,
+        vendor_name: grn.vendor_name || f.vendor_name,
+        po_number: grn.po_number || f.po_number,
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        tax_amount: parseFloat(tax.toFixed(2)),
+        total_amount: parseFloat((subtotal + tax).toFixed(2)),
+      }));
+    } else {
+      setForm(f => ({ ...f, grn_number }));
+    }
+  };
+
+  const handleAction = async (actionStatus) => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/purchase-invoices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});
+      const payload = {...form, status: actionStatus};
+      const url = mode==='edit'?`/api/purchase-invoices/${form.invoice_number}`:'/api/purchase-invoices';
+      const method = mode==='edit'?'PUT':'POST';
+      const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if (!res.ok) throw new Error(await res.text());
-      await fetchInvoices(); showMsg('Invoice saved!'); setMode('list');
+      await fetchInvoices(); showMsg(`Invoice ${actionStatus === 'Posted' ? 'posted' : 'saved'}!`); setMode('list');
     } catch(err){showMsg('Error: '+err.message,'error');}
     finally{setLoading(false);}
   };
@@ -72,11 +103,7 @@ export default function PurchaseInvoice() {
     await fetchInvoices(); showMsg('Invoice marked as paid!');
   };
 
-  const handleDelete = async (inv_number) => {
-    if (!confirm('Delete?')) return;
-    await fetch(`/api/purchase-invoices/${inv_number}`,{method:'DELETE'});
-    await fetchInvoices(); showMsg('Deleted.');
-  };
+  // Removed handleDelete in favor of Save/Post workflow
 
   const filtered = invoices.filter(inv=>inv.invoice_number?.toLowerCase().includes(search.toLowerCase())||inv.vendor_name?.toLowerCase().includes(search.toLowerCase()));
 
@@ -89,9 +116,21 @@ export default function PurchaseInvoice() {
             <h2 className="text-xl font-bold text-[#111827]">{mode==='view'?'Invoice Details':'New Purchase Invoice'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">{mode==='view'?'Viewing invoice':'Record a vendor invoice'}</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this Invoice? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-[#374151] mb-4 flex items-center gap-2"><Receipt size={15} className="text-[#1a56db]"/>Invoice Details</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -106,7 +145,7 @@ export default function PurchaseInvoice() {
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Due Date</label>
                 <input name="due_date" type="date" value={form.due_date||''} onChange={handleField} readOnly={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 ${readOnly?'bg-[#f9fafb]':'bg-white'}`}/></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">GRN Reference</label>
-                <select name="grn_number" value={form.grn_number||''} onChange={handleField} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
+                <select name="grn_number" value={form.grn_number||''} onChange={handleGRNChange} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
                   <option value="">None</option>{grns.map(g=><option key={g.grn_number} value={g.grn_number}>{g.grn_number}</option>)}
                 </select></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">PO Reference</label>
@@ -128,13 +167,11 @@ export default function PurchaseInvoice() {
             </div>
             <div className="mt-4"><label className="block text-xs font-medium text-[#6b7280] mb-1">Remarks</label>
               <textarea name="remarks" value={form.remarks||''} onChange={handleField} readOnly={readOnly} rows={2} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm resize-none ${readOnly?'bg-[#f9fafb]':'bg-white'}`}/></div>
+            <div className="mt-4"><label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
+                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]" />
+            </div>
           </div>
-          {!readOnly&&(<div className="flex justify-end gap-3">
-            <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6] transition-colors">Cancel</button>
-            <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] disabled:opacity-60">
-              <Save size={15}/>{loading?'Saving...':'Save Invoice'}
-            </button>
-          </div>)}
+
         </form>
       </div>
     );
@@ -156,7 +193,7 @@ export default function PurchaseInvoice() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-              <tr>{['Invoice #','Vendor','Date','GRN Ref','Total (₹)','Status','Actions'].map(h=>(
+              <tr>{['Invoice #','Vendor','Date','GRN Ref','Total (₹)','Payment','Status','Actions'].map(h=>(
                 <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap">{h}</th>
               ))}</tr>
             </thead>
@@ -175,10 +212,17 @@ export default function PurchaseInvoice() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${inv.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#fef3c7] text-[#d97706]'}`}>
+                      {inv.status || 'Draft'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
-                      <button onClick={()=>{setForm(inv);setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
+                      <button onClick={()=>{setForm(inv);setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]" title="View"><Eye size={14}/></button>
+                      {inv.status !== 'Posted' && (
+                        <button onClick={()=>{setForm(inv);setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]" title="Edit"><Edit2 size={14}/></button>
+                      )}
                       {inv.payment_status!=='Paid'&&(<button onClick={()=>markPaid(inv.invoice_number)} title="Mark Paid" className="p-1.5 rounded-lg hover:bg-[#dcfce7] text-[#16a34a]"><CheckCircle size={14}/></button>)}
-                      <button onClick={()=>handleDelete(inv.invoice_number)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={14}/></button>
                     </div>
                   </td>
                 </tr>

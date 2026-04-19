@@ -72,6 +72,38 @@ def create_grn(grn: GRNCreate):
         conn.close()
 
 
+@router.put("/goods-receipts/{grn_number}")
+def update_grn(grn_number: str, grn: GRNCreate):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """UPDATE goods_receipts SET 
+               po_number=%s, vendor_id=%s, vendor_name=%s, receipt_date=%s, warehouse_location=%s, qc_required=%s, status=%s
+               WHERE grn_number=%s""",
+            (grn.po_number, grn.vendor_id, grn.vendor_name, grn.receipt_date,
+             grn.warehouse_location, grn.qc_required, grn.status, grn_number)
+        )
+        cursor.execute("DELETE FROM grn_line_items WHERE grn_number=%s", (grn_number,))
+        for item in grn.line_items:
+            accepted = item.received_qty - item.rejected_qty
+            cursor.execute(
+                """INSERT INTO grn_line_items
+                   (grn_number, item_code, item_name, ordered_qty, received_qty, rejected_qty, accepted_qty, uom, remarks)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (grn_number, item.item_code, item.item_name, item.ordered_qty,
+                 item.received_qty, item.rejected_qty, accepted, item.uom, item.remarks)
+            )
+        conn.commit()
+        return _get_grn_full(cursor, grn_number)
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @router.delete("/goods-receipts/{grn_number}")
 def delete_grn(grn_number: str):
     conn = get_connection()

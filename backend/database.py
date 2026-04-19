@@ -155,6 +155,7 @@ def init_database():
             uom VARCHAR(30) DEFAULT 'Nos',
             total_amount DOUBLE DEFAULT 0,
             is_selected TINYINT(1) DEFAULT 0,
+            status VARCHAR(30) DEFAULT 'Draft',
             remarks TEXT DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -242,6 +243,7 @@ def init_database():
             tax_percent DOUBLE DEFAULT 0,
             tax_amount DOUBLE DEFAULT 0,
             total_amount DOUBLE DEFAULT 0,
+            status VARCHAR(30) DEFAULT 'Draft',
             payment_status VARCHAR(30) DEFAULT 'Unpaid',
             due_date VARCHAR(20) DEFAULT NULL,
             remarks TEXT DEFAULT NULL,
@@ -259,6 +261,7 @@ def init_database():
             purchase_date VARCHAR(20) NOT NULL,
             invoice_number VARCHAR(100) DEFAULT NULL,
             total_amount DOUBLE DEFAULT 0,
+            status VARCHAR(30) DEFAULT 'Draft',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -323,6 +326,7 @@ def init_database():
             return_id VARCHAR(100) NOT NULL UNIQUE,
             vendor_name VARCHAR(200) NOT NULL,
             date_received VARCHAR(20) NOT NULL,
+            status VARCHAR(30) DEFAULT 'Draft',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)

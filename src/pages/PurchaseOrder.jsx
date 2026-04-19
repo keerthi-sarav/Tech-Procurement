@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, Package, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Package, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 
 function genPO() { return `PO-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
 
 const statusColor = (s) => {
-  if (s==='Approved') return 'bg-[#dcfce7] text-[#16a34a]';
+  if (s==='Approved' || s==='Posted') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s==='Rejected') return 'bg-[#fee2e2] text-[#dc2626]';
   return 'bg-[#fef3c7] text-[#d97706]';
 };
@@ -41,7 +41,60 @@ export default function PurchaseOrder() {
   const handleVendorChange = (e) => {
     const id = parseInt(e.target.value);
     const v = vendors.find(v=>v.id===id);
-    setForm(f=>({...f, vendor_id:id, vendor_name:v?.vendor_name||'', payment_terms:v?.payment_terms||f.payment_terms}));
+    setForm(f => {
+      const updatedVendorId = id;
+      const updatedVendorName = v?.vendor_name || '';
+      // auto-fill RFQ when PR + Vendor are both known
+      const matchingRfq = rfqs.find(r =>
+        r.pr_number === (f.pr_number || '') &&
+        r.vendor_ids?.includes(updatedVendorId)
+      );
+      const newLineItems = matchingRfq?.line_items?.length
+        ? matchingRfq.line_items.map(l => ({
+            item_code: l.item_code || '',
+            item_name: l.item_name || '',
+            quantity: parseFloat(l.quantity_required || l.quantity || 1),
+            uom: l.uom || 'Nos',
+            rate: 0, tax_percent: 0, discount_percent: 0, total_amount: 0,
+          }))
+        : f.line_items;
+      return {
+        ...f,
+        vendor_id: updatedVendorId,
+        vendor_name: updatedVendorName,
+        payment_terms: v?.payment_terms || f.payment_terms,
+        rfq_number: matchingRfq?.rfq_number || f.rfq_number,
+        line_items: newLineItems,
+        total_amount: newLineItems.reduce((s, l) => s + (l.total_amount || 0), 0),
+      };
+    });
+  };
+
+  const handlePRChange = (e) => {
+    const pr_number = e.target.value;
+    setForm(f => {
+      // auto-fill RFQ when PR + Vendor are both known
+      const matchingRfq = rfqs.find(r =>
+        r.pr_number === pr_number &&
+        (f.vendor_id ? r.vendor_ids?.includes(f.vendor_id) : true)
+      );
+      const newLineItems = matchingRfq?.line_items?.length
+        ? matchingRfq.line_items.map(l => ({
+            item_code: l.item_code || '',
+            item_name: l.item_name || '',
+            quantity: parseFloat(l.quantity_required || l.quantity || 1),
+            uom: l.uom || 'Nos',
+            rate: 0, tax_percent: 0, discount_percent: 0, total_amount: 0,
+          }))
+        : f.line_items;
+      return {
+        ...f,
+        pr_number,
+        rfq_number: matchingRfq?.rfq_number || f.rfq_number,
+        line_items: newLineItems,
+        total_amount: newLineItems.reduce((s, l) => s + (l.total_amount || 0), 0),
+      };
+    });
   };
 
   const handleLine = (i, e) => {
@@ -63,26 +116,21 @@ export default function PurchaseOrder() {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const handleAction = async (actionStatus) => {
+    setLoading(true);
     try {
+      const payload = {...form, approval_status: actionStatus, line_items:form.line_items.filter(l=>l.item_name)};
       const url = mode==='edit'?`/api/purchase-orders/${form.po_number}`:'/api/purchase-orders';
       const method = mode==='edit'?'PUT':'POST';
-      const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({...form, line_items:form.line_items.filter(l=>l.item_name)})});
+      const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if (!res.ok) throw new Error(await res.text());
-      await fetchPOs(); showMsg(mode==='edit'?'PO updated!':'PO created!'); setMode('list');
+      await fetchPOs(); showMsg(`PO ${actionStatus === 'Posted' ? 'posted' : 'saved'}!`); setMode('list');
     } catch(err){showMsg('Error: '+err.message,'error');} finally{setLoading(false);}
   };
 
   const handleApprove = async (po_number, action) => {
     await fetch(`/api/purchase-orders/${po_number}/${action}`, {method:'PATCH'});
     await fetchPOs(); showMsg(`PO ${action}d!`);
-  };
-
-  const handleDelete = async (po_number) => {
-    if (!confirm('Delete this PO?')) return;
-    await fetch(`/api/purchase-orders/${po_number}`,{method:'DELETE'});
-    await fetchPOs(); showMsg('PO deleted.');
   };
 
   const filtered = pos.filter(p=>p.po_number?.toLowerCase().includes(search.toLowerCase())||p.vendor_name?.toLowerCase().includes(search.toLowerCase()));
@@ -96,9 +144,21 @@ export default function PurchaseOrder() {
             <h2 className="text-xl font-bold text-[#111827]">{mode==='view'?'PO Details':mode==='edit'?'Edit Purchase Order':'New Purchase Order'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">{mode==='view'?'View only':'Create a purchase order to a vendor'}</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.approval_status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this PO? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-[#374151] mb-4 flex items-center gap-2"><Package size={15} className="text-[#1a56db]"/>PO Details</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -121,7 +181,7 @@ export default function PurchaseOrder() {
                   {['INR','USD','EUR'].map(c=><option key={c}>{c}</option>)}
                 </select></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">PR Reference</label>
-                <select name="pr_number" value={form.pr_number||''} onChange={handleField} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
+                <select name="pr_number" value={form.pr_number||''} onChange={handlePRChange} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
                   <option value="">None</option>{prs.map(p=><option key={p.pr_number} value={p.pr_number}>{p.pr_number}</option>)}
                 </select></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">RFQ Reference</label>
@@ -129,9 +189,7 @@ export default function PurchaseOrder() {
                   <option value="">None</option>{rfqs.map(r=><option key={r.rfq_number} value={r.rfq_number}>{r.rfq_number}</option>)}
                 </select></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Approval Status</label>
-                <select name="approval_status" value={form.approval_status} onChange={handleField} disabled={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
-                  {['Pending','Approved','Rejected'].map(s=><option key={s}>{s}</option>)}
-                </select></div>
+                <input value={form.approval_status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]" /></div>
             </div>
             <div className="mt-4"><label className="block text-xs font-medium text-[#6b7280] mb-1">Terms & Conditions</label>
               <textarea name="terms_conditions" value={form.terms_conditions||''} onChange={handleField} readOnly={readOnly} rows={2}
@@ -191,14 +249,7 @@ export default function PurchaseOrder() {
             </div>
           </div>
 
-          {!readOnly&&(
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6] transition-colors">Cancel</button>
-              <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
-                <Save size={15}/>{loading?'Saving...':mode==='edit'?'Update PO':'Create PO'}
-              </button>
-            </div>
-          )}
+
         </form>
       </div>
     );
@@ -241,12 +292,13 @@ export default function PurchaseOrder() {
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
                       <button onClick={()=>{setForm({...po,line_items:po.line_items?.length?po.line_items:[emptyLine()]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
-                      <button onClick={()=>{setForm({...po,line_items:po.line_items?.length?po.line_items:[emptyLine()]});setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]"><Edit2 size={14}/></button>
+                      {po.approval_status !== 'Posted' && (
+                        <button onClick={()=>{setForm({...po,line_items:po.line_items?.length?po.line_items:[emptyLine()]});setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]"><Edit2 size={14}/></button>
+                      )}
                       {po.approval_status==='Pending'&&(<>
                         <button onClick={()=>handleApprove(po.po_number,'approve')} title="Approve" className="p-1.5 rounded-lg hover:bg-[#dcfce7] text-[#16a34a]"><CheckCircle size={14}/></button>
                         <button onClick={()=>handleApprove(po.po_number,'reject')} title="Reject" className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><XCircle size={14}/></button>
                       </>)}
-                      <button onClick={()=>handleDelete(po.po_number)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={14}/></button>
                     </div>
                   </td>
                 </tr>

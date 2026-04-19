@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Star, TrendingDown, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Star, TrendingDown, RefreshCw, Save, X, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 
 function genQuoteNum() {
@@ -20,6 +20,7 @@ const emptyForm = (rfq_number='', vendor_id='', vendor_name='') => ({
   quantity: 0,
   uom: 'Nos',
   total_amount: 0,
+  status: 'Draft',
   remarks: '',
 });
 
@@ -54,6 +55,17 @@ export default function VendorQuotation() {
     const name = e.target.name;
     setForm(f => {
       const updated = {...f, [name]: val};
+      if (name === 'item_code') {
+        const selectedRfq = rfqs.find(r => r.rfq_number === f.rfq_number);
+        if (selectedRfq && selectedRfq.line_items) {
+          const item = selectedRfq.line_items.find(l => l.item_code === val);
+          if (item) {
+            updated.item_name = item.item_name;
+            updated.quantity = item.quantity;
+            updated.uom = item.uom;
+          }
+        }
+      }
       if (name === 'rate' || name === 'quantity') {
         updated.total_amount = parseFloat(updated.rate||0) * parseFloat(updated.quantity||0);
       }
@@ -67,19 +79,19 @@ export default function VendorQuotation() {
     setForm(f=>({...f, vendor_id: id, vendor_name: v?.vendor_name||''}));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleAction = async (actionStatus) => {
     setLoading(true);
     try {
+      const payload = { ...form, status: actionStatus };
       const res = await fetch('/api/vendor-quotations', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       await fetchAllQuotes();
       if (selRFQ) await fetchCompare(selRFQ);
-      showMsg('Quotation saved!');
+      showMsg(`Quotation ${actionStatus === 'Posted' ? 'posted' : 'saved'}!`);
       setShowForm(false);
       setForm(emptyForm(selRFQ));
     } catch (err) { showMsg('Error: '+err.message,'error'); }
@@ -92,15 +104,12 @@ export default function VendorQuotation() {
     showMsg('Vendor selected as best quote!');
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this quotation?')) return;
-    await fetch(`/api/vendor-quotations/${id}`, {method:'DELETE'});
-    await fetchAllQuotes();
-    await fetchCompare(selRFQ);
-    showMsg('Deleted.');
-  };
+  // Removed handleDelete based on requirements
 
   const minRate = compareData.length ? Math.min(...compareData.map(q=>q.rate)) : 0;
+  const currentRfq = rfqs.find(r => r.rfq_number === form.rfq_number);
+  const rfqVendors = currentRfq ? vendors.filter(v => currentRfq.vendor_ids?.includes(v.id)) : [];
+  const rfqItems = currentRfq ? (currentRfq.line_items || []) : [];
 
   return (
     <div>
@@ -132,9 +141,16 @@ export default function VendorQuotation() {
         <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm mb-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-[#374151]">New Vendor Quotation</h3>
-            <button onClick={()=>setShowForm(false)} className="p-1 rounded hover:bg-[#f3f4f6] text-[#6b7280]"><Trash2 size={14}/></button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <Save size={14}/> Save
+              </button>
+              <button type="button" onClick={()=>{ if(confirm('Post this Quotation? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                <FileText size={14}/> Post
+              </button>
+            </div>
           </div>
-          <form onSubmit={handleSubmit}>
+          <form className="mb-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>
                 <label className="block text-xs font-medium text-[#6b7280] mb-1">Quote Number</label>
@@ -153,7 +169,7 @@ export default function VendorQuotation() {
                 <select value={form.vendor_id||''} onChange={handleVendorChange} required
                   className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white">
                   <option value="">Select Vendor</option>
-                  {vendors.map(v=><option key={v.id} value={v.id}>{v.vendor_name}</option>)}
+                  {rfqVendors.map(v=><option key={v.id} value={v.id}>{v.vendor_name}</option>)}
                 </select>
               </div>
               <div>
@@ -161,12 +177,16 @@ export default function VendorQuotation() {
                 <input name="quote_date" type="date" value={form.quote_date} onChange={handleField} className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white"/>
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#6b7280] mb-1">Item Code</label>
-                <input name="item_code" value={form.item_code} onChange={handleField} className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white"/>
+                <label className="block text-xs font-medium text-[#6b7280] mb-1">Item Code *</label>
+                <select name="item_code" value={form.item_code} onChange={handleField} required
+                  className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white">
+                  <option value="">Select Item</option>
+                  {rfqItems.map(item=><option key={item.item_code} value={item.item_code}>{item.item_code} - {item.item_name}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6b7280] mb-1">Item Name</label>
-                <input name="item_name" value={form.item_name} onChange={handleField} className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white"/>
+                <input name="item_name" value={form.item_name} onChange={handleField} className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white" placeholder="Auto-filled from item code"/>
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6b7280] mb-1">Quantity</label>
@@ -193,12 +213,7 @@ export default function VendorQuotation() {
                 <input name="remarks" value={form.remarks} onChange={handleField} className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 bg-white"/>
               </div>
             </div>
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={()=>setShowForm(false)} className="px-4 py-2 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6] transition-colors">Cancel</button>
-              <button type="submit" disabled={loading} className="px-6 py-2 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
-                {loading?'Saving...':'Save Quotation'}
-              </button>
-            </div>
+
           </form>
         </div>
       )}
@@ -239,7 +254,6 @@ export default function VendorQuotation() {
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5">
                           <button onClick={()=>handleSelect(q.id)} title="Select this vendor" className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db] transition-colors"><Star size={13}/></button>
-                          <button onClick={()=>handleDelete(q.id)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626] transition-colors"><Trash2 size={13}/></button>
                         </div>
                       </td>
                     </tr>
@@ -279,7 +293,7 @@ export default function VendorQuotation() {
                     (<span className="text-[#6b7280] text-xs">—</span>)}
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={()=>handleDelete(q.id)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626] transition-colors"><Trash2 size={13}/></button>
+                    <span className="text-[#6b7280] text-xs">{q.status || 'Draft'}</span>
                   </td>
                 </tr>
               ))}

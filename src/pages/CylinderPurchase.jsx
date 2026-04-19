@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Eye, Save, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 
 function genCPID() { return `CP-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
@@ -13,6 +13,7 @@ const emptyForm = () => ({
   purchase_date: new Date().toISOString().split('T')[0],
   invoice_number: '',
   total_amount: 0,
+  status: 'Draft',
   items: [emptyItem()],
 });
 
@@ -54,21 +55,20 @@ export default function CylinderPurchase() {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const handleAction = async (actionStatus) => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/cylinder-purchases',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)});
+      const payload = {...form, status: actionStatus};
+      const url = mode==='edit'?`/api/cylinder-purchases/${form.purchase_id}`:'/api/cylinder-purchases';
+      const method = mode==='edit'?'PUT':'POST';
+      const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if (!res.ok) throw new Error(await res.text());
-      await fetchRecords(); showMsg('Cylinder purchase saved!'); setMode('list');
+      await fetchRecords(); showMsg(`Cylinder purchase ${actionStatus === 'Posted' ? 'posted' : 'saved'}!`); setMode('list');
     } catch(err){showMsg('Error: '+err.message,'error');}
     finally{setLoading(false);}
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete?')) return;
-    await fetch(`/api/cylinder-purchases/${id}`,{method:'DELETE'});
-    await fetchRecords(); showMsg('Deleted.');
-  };
+  // Removed handleDelete in favor of Save/Post workflow
 
   if (mode !== 'list') {
     const readOnly = mode==='view';
@@ -79,9 +79,21 @@ export default function CylinderPurchase() {
             <h2 className="text-xl font-bold text-[#111827]">{mode==='view'?'Cylinder Purchase Details':'New Cylinder Purchase'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">Track cylinder purchases as fixed assets</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this Purchase? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors"><X size={15}/>Back</button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Purchase ID</label>
@@ -96,6 +108,9 @@ export default function CylinderPurchase() {
                 <input name="invoice_number" value={form.invoice_number||''} onChange={handleField} readOnly={readOnly} className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 ${readOnly?'bg-[#f9fafb]':'bg-white'}`}/></div>
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Total Amount (₹)</label>
                 <input value={(form.total_amount||0).toFixed(2)} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#e8f0fe] text-[#1a56db] font-bold"/></div>
+              <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
+                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]" />
+              </div>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
@@ -127,12 +142,7 @@ export default function CylinderPurchase() {
               </tbody>
             </table>
           </div>
-          {!readOnly&&(<div className="flex justify-end gap-3">
-            <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6]">Cancel</button>
-            <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] disabled:opacity-60">
-              <Save size={15}/>{loading?'Saving...':'Save Purchase'}
-            </button>
-          </div>)}
+
         </form>
       </div>
     );
@@ -150,12 +160,12 @@ export default function CylinderPurchase() {
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-            <tr>{['Purchase ID','Vendor','Date','Invoice #','Total (₹)','Items','Actions'].map(h=>(
+            <tr>{['Purchase ID','Vendor','Date','Invoice #','Total (₹)','Items','Status','Actions'].map(h=>(
               <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-[#e5e7eb]">
-            {records.length===0&&(<tr><td colSpan={7} className="text-center py-12 text-[#6b7280]">No cylinder purchases yet.</td></tr>)}
+            {records.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinder purchases yet.</td></tr>)}
             {records.map(r=>(
               <tr key={r.purchase_id} className="hover:bg-[#f9fafb]">
                 <td className="px-5 py-3.5 font-medium text-[#1a56db]">{r.purchase_id}</td>
@@ -165,9 +175,16 @@ export default function CylinderPurchase() {
                 <td className="px-5 py-3.5 font-semibold">₹{parseFloat(r.total_amount||0).toFixed(2)}</td>
                 <td className="px-5 py-3.5 text-[#6b7280]">{r.items?.length||0} types</td>
                 <td className="px-5 py-3.5">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${r.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#fef3c7] text-[#d97706]'}`}>
+                    {r.status || 'Draft'}
+                  </span>
+                </td>
+                <td className="px-5 py-3.5">
                   <div className="flex gap-1.5">
-                    <button onClick={()=>{setForm(r);setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
-                    <button onClick={()=>handleDelete(r.purchase_id)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={14}/></button>
+                    <button onClick={()=>{setForm({...r,items:r.items?.length?r.items:[emptyItem()]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
+                    {r.status !== 'Posted' && (
+                      <button onClick={()=>{setForm({...r,items:r.items?.length?r.items:[emptyItem()]});setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]"><Edit2 size={14}/></button>
+                    )}
                   </div>
                 </td>
               </tr>

@@ -28,8 +28,8 @@ def create_cylinder_purchase(cp: CylinderPurchaseCreate):
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(
-            "INSERT INTO cylinder_purchases (purchase_id, vendor_id, vendor_name, purchase_date, invoice_number, total_amount) VALUES (%s,%s,%s,%s,%s,%s)",
-            (cp.purchase_id, cp.vendor_id, cp.vendor_name, cp.purchase_date, cp.invoice_number, cp.total_amount)
+            "INSERT INTO cylinder_purchases (purchase_id, vendor_id, vendor_name, purchase_date, invoice_number, total_amount, status) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            (cp.purchase_id, cp.vendor_id, cp.vendor_name, cp.purchase_date, cp.invoice_number, cp.total_amount, cp.status)
         )
         for item in cp.items:
             cursor.execute(
@@ -40,6 +40,35 @@ def create_cylinder_purchase(cp: CylinderPurchaseCreate):
         cursor.execute("SELECT * FROM cylinder_purchases WHERE purchase_id = %s", (cp.purchase_id,))
         result = cursor.fetchone()
         cursor.execute("SELECT * FROM cylinder_purchase_items WHERE purchase_id = %s", (cp.purchase_id,))
+        result["items"] = cursor.fetchall()
+        return result
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@router.put("/cylinder-purchases/{purchase_id}")
+def update_cylinder_purchase(purchase_id: str, cp: CylinderPurchaseCreate):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "UPDATE cylinder_purchases SET vendor_id=%s, vendor_name=%s, purchase_date=%s, invoice_number=%s, total_amount=%s, status=%s WHERE purchase_id=%s",
+            (cp.vendor_id, cp.vendor_name, cp.purchase_date, cp.invoice_number, cp.total_amount, cp.status, purchase_id)
+        )
+        cursor.execute("DELETE FROM cylinder_purchase_items WHERE purchase_id=%s", (purchase_id,))
+        for item in cp.items:
+            cursor.execute(
+                "INSERT INTO cylinder_purchase_items (purchase_id, cylinder_type, quantity, unit_cost, total_cost) VALUES (%s,%s,%s,%s,%s)",
+                (purchase_id, item.cylinder_type, item.quantity, item.unit_cost, item.total_cost)
+            )
+        conn.commit()
+        cursor.execute("SELECT * FROM cylinder_purchases WHERE purchase_id = %s", (purchase_id,))
+        result = cursor.fetchone()
+        cursor.execute("SELECT * FROM cylinder_purchase_items WHERE purchase_id = %s", (purchase_id,))
         result["items"] = cursor.fetchall()
         return result
     except Exception as e:
@@ -177,6 +206,35 @@ def create_testing(ct: CylinderTestingCreate):
         conn.close()
 
 
+@router.put("/cylinder-testing/{transaction_id}")
+def update_testing(transaction_id: str, ct: CylinderTestingCreate):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "UPDATE cylinder_testing SET vendor_name=%s, date_sent=%s, expected_return_date=%s, status=%s WHERE transaction_id=%s",
+            (ct.vendor_name, ct.date_sent, ct.expected_return_date, ct.status, transaction_id)
+        )
+        cursor.execute("DELETE FROM cylinder_testing_items WHERE transaction_id=%s", (transaction_id,))
+        for item in ct.items:
+            cursor.execute(
+                "INSERT INTO cylinder_testing_items (transaction_id, serial_number, reason) VALUES (%s,%s,%s)",
+                (transaction_id, item.serial_number, item.reason)
+            )
+        conn.commit()
+        cursor.execute("SELECT * FROM cylinder_testing WHERE transaction_id = %s", (transaction_id,))
+        result = cursor.fetchone()
+        cursor.execute("SELECT * FROM cylinder_testing_items WHERE transaction_id = %s", (transaction_id,))
+        result["items"] = cursor.fetchall()
+        return result
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+
 @router.delete("/cylinder-testing/{transaction_id}")
 def delete_testing(transaction_id: str):
     conn = get_connection()
@@ -210,24 +268,60 @@ def create_return(cr: CylinderReturnCreate):
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(
-            "INSERT INTO cylinder_returns (return_id, vendor_name, date_received) VALUES (%s,%s,%s)",
-            (cr.return_id, cr.vendor_name, cr.date_received)
+            "INSERT INTO cylinder_returns (return_id, vendor_name, date_received, status) VALUES (%s,%s,%s,%s)",
+            (cr.return_id, cr.vendor_name, cr.date_received, cr.status)
         )
         for item in cr.items:
             cursor.execute(
                 "INSERT INTO cylinder_return_items (return_id, serial_number, status, next_test_due_date, repair_cost) VALUES (%s,%s,%s,%s,%s)",
                 (cr.return_id, item.serial_number, item.status, item.next_test_due_date, item.repair_cost)
             )
-            # Update cylinder registry status
-            new_status = "Active" if item.status == "Passed" else "Scrapped"
-            cursor.execute(
-                "UPDATE cylinder_registry SET status=%s, test_due_date=%s WHERE serial_number=%s",
-                (new_status, item.next_test_due_date, item.serial_number)
-            )
+            if cr.status == "Posted":
+                # Update cylinder registry status only when Posted
+                new_status = "Active" if item.status == "Passed" else "Scrapped"
+                cursor.execute(
+                    "UPDATE cylinder_registry SET status=%s, test_due_date=%s WHERE serial_number=%s",
+                    (new_status, item.next_test_due_date, item.serial_number)
+                )
         conn.commit()
         cursor.execute("SELECT * FROM cylinder_returns WHERE return_id = %s", (cr.return_id,))
         result = cursor.fetchone()
         cursor.execute("SELECT * FROM cylinder_return_items WHERE return_id = %s", (cr.return_id,))
+        result["items"] = cursor.fetchall()
+        return result
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@router.put("/cylinder-returns/{return_id}")
+def update_return(return_id: str, cr: CylinderReturnCreate):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "UPDATE cylinder_returns SET vendor_name=%s, date_received=%s, status=%s WHERE return_id=%s",
+            (cr.vendor_name, cr.date_received, cr.status, return_id)
+        )
+        cursor.execute("DELETE FROM cylinder_return_items WHERE return_id=%s", (return_id,))
+        for item in cr.items:
+            cursor.execute(
+                "INSERT INTO cylinder_return_items (return_id, serial_number, status, next_test_due_date, repair_cost) VALUES (%s,%s,%s,%s,%s)",
+                (return_id, item.serial_number, item.status, item.next_test_due_date, item.repair_cost)
+            )
+            if cr.status == "Posted":
+                new_status = "Active" if item.status == "Passed" else "Scrapped"
+                cursor.execute(
+                    "UPDATE cylinder_registry SET status=%s, test_due_date=%s WHERE serial_number=%s",
+                    (new_status, item.next_test_due_date, item.serial_number)
+                )
+        conn.commit()
+        cursor.execute("SELECT * FROM cylinder_returns WHERE return_id = %s", (return_id,))
+        result = cursor.fetchone()
+        cursor.execute("SELECT * FROM cylinder_return_items WHERE return_id = %s", (return_id,))
         result["items"] = cursor.fetchall()
         return result
     except Exception as e:

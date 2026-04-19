@@ -136,6 +136,7 @@ class VendorQuotationCreate(BaseModel):
     quantity: float = 0
     uom: str = "Nos"
     total_amount: float = 0
+    status: Optional[str] = "Draft"
     remarks: Optional[str] = None
 
 class VendorQuotationOut(BaseModel):
@@ -154,6 +155,7 @@ class VendorQuotationOut(BaseModel):
     uom: str
     total_amount: float
     is_selected: int
+    status: str
     remarks: Optional[str] = None
 
 
@@ -273,6 +275,7 @@ class PurchaseInvoiceCreate(BaseModel):
     tax_amount: float = 0
     total_amount: float = 0
     payment_status: Optional[str] = "Unpaid"
+    status: Optional[str] = "Draft"
     due_date: Optional[str] = None
     remarks: Optional[str] = None
 
@@ -289,6 +292,7 @@ class PurchaseInvoiceOut(BaseModel):
     tax_amount: float
     total_amount: float
     payment_status: str
+    status: str
     due_date: Optional[str] = None
     remarks: Optional[str] = None
 
@@ -315,6 +319,7 @@ class CylinderPurchaseCreate(BaseModel):
     purchase_date: str
     invoice_number: Optional[str] = None
     total_amount: float = 0
+    status: Optional[str] = "Draft"
     items: List[CylinderPurchaseItemCreate] = []
 
 class CylinderPurchaseOut(BaseModel):
@@ -325,6 +330,7 @@ class CylinderPurchaseOut(BaseModel):
     purchase_date: str
     invoice_number: Optional[str] = None
     total_amount: float
+    status: str
     items: List[CylinderPurchaseItemOut] = []
 
 
@@ -404,6 +410,7 @@ class CylinderReturnCreate(BaseModel):
     return_id: str
     vendor_name: str
     date_received: str
+    status: Optional[str] = "Draft"
     items: List[CylinderReturnItemCreate] = []
 
 class CylinderReturnOut(BaseModel):
@@ -411,4 +418,5 @@ class CylinderReturnOut(BaseModel):
     return_id: str
     vendor_name: str
     date_received: str
+    status: str
     items: List[CylinderReturnItemOut] = []

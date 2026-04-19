@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, ShoppingCart, CheckSquare } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, ShoppingCart, CheckSquare, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 
 const UOMS = ['Nos', 'Kg', 'Ltr', 'Mtr', 'Box', 'Set', 'Pair', 'Service'];
@@ -21,7 +21,7 @@ const emptyForm = () => ({
 });
 
 const statusColor = (s) => {
-  if (s === 'Closed') return 'bg-[#dcfce7] text-[#16a34a]';
+  if (s === 'Posted' || s === 'Closed') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s === 'Cancelled') return 'bg-[#fee2e2] text-[#dc2626]';
   return 'bg-[#e8f0fe] text-[#1a56db]';
 };
@@ -35,7 +35,25 @@ export default function RequestForQuotation() {
   const [search, setSearch] = useState('');
 
   const showMsg = (text, type='success') => { setMsg({text,type}); setTimeout(()=>setMsg(null),3000); };
-  const handleField = (e) => setForm(f => ({...f, [e.target.name]: e.target.value}));
+  const handleField = (e) => {
+    const { name, value } = e.target;
+    setForm(f => {
+      let updated = { ...f, [name]: value };
+      if (name === 'pr_number' && value) {
+        const pr = prs.find(p => p.pr_number === value);
+        if (pr && pr.line_items?.length) {
+          updated.line_items = pr.line_items.map(l => ({
+            item_code: l.item_code,
+            item_name: l.item_name,
+            quantity: l.quantity_required || 0,
+            uom: l.uom || 'Nos',
+            expected_rate: 0
+          }));
+        }
+      }
+      return updated;
+    });
+  };
   const handleLine = (i, e) => {
     const lines = [...form.line_items];
     lines[i] = {...lines[i], [e.target.name]: e.target.value};
@@ -51,30 +69,23 @@ export default function RequestForQuotation() {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleAction = async (actionStatus) => {
     setLoading(true);
     try {
+      const payload = { ...form, status: actionStatus, line_items: form.line_items.filter(l=>l.item_name) };
       const url = mode === 'edit' ? `/api/rfqs/${form.rfq_number}` : '/api/rfqs';
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({...form, line_items: form.line_items.filter(l=>l.item_name)}),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       await fetchRFQs();
-      showMsg(mode === 'edit' ? 'RFQ updated!' : 'RFQ created!');
+      showMsg(`RFQ ${actionStatus === 'Posted' ? 'posted' : 'saved'}!`);
       setMode('list');
     } catch (err) { showMsg('Error: '+err.message,'error'); }
     finally { setLoading(false); }
-  };
-
-  const handleDelete = async (rfq_number) => {
-    if (!confirm('Delete this RFQ?')) return;
-    await fetch(`/api/rfqs/${rfq_number}`, {method:'DELETE'});
-    await fetchRFQs();
-    showMsg('RFQ deleted.');
   };
 
   const handleEdit = (rfq) => { setForm({...rfq, line_items: rfq.line_items?.length ? rfq.line_items : [emptyLine()], vendor_ids: rfq.vendor_ids || []}); setMode('edit'); };
@@ -95,11 +106,23 @@ export default function RequestForQuotation() {
             <h2 className="text-xl font-bold text-[#111827]">{mode==='view'?'RFQ Details':mode==='edit'?'Edit RFQ':'New Request for Quotation'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">{mode==='view'?'Viewing record':'Fill in the details below'}</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors">
-            <X size={15}/> Back
-          </button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this RFQ? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm transition-colors">
+              <X size={15}/> Back
+            </button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-[#374151] mb-4 flex items-center gap-2">
               <ShoppingCart size={15} className="text-[#1a56db]"/> RFQ Details
@@ -122,15 +145,12 @@ export default function RequestForQuotation() {
                 <select name="pr_number" value={form.pr_number||''} onChange={handleField} disabled={readOnly}
                   className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 focus:border-[#1a56db] transition-colors ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
                   <option value="">-- No PR Reference --</option>
-                  {prs.map(p=><option key={p.pr_number} value={p.pr_number}>{p.pr_number} — {p.requested_by}</option>)}
+                  {prs.filter(p => !readOnly || p.pr_number === form.pr_number).map(p=><option key={p.pr_number} value={p.pr_number}>{p.pr_number} — {p.requested_by}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
-                <select name="status" value={form.status} onChange={handleField} disabled={readOnly}
-                  className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 focus:border-[#1a56db] transition-colors ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
-                  {['Open','Closed','Cancelled'].map(s=><option key={s}>{s}</option>)}
-                </select>
+                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]" />
               </div>
             </div>
           </div>
@@ -202,14 +222,7 @@ export default function RequestForQuotation() {
             </div>
           </div>
 
-          {!readOnly && (
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm text-[#374151] hover:bg-[#f3f4f6] transition-colors">Cancel</button>
-              <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
-                <Save size={15}/> {loading?'Saving...':mode==='edit'?'Update RFQ':'Create RFQ'}
-              </button>
-            </div>
-          )}
+
         </form>
       </div>
     );
@@ -249,8 +262,9 @@ export default function RequestForQuotation() {
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
                       <button onClick={()=>handleView(rfq)} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db] transition-colors"><Eye size={14}/></button>
-                      <button onClick={()=>handleEdit(rfq)} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706] transition-colors"><Edit2 size={14}/></button>
-                      <button onClick={()=>handleDelete(rfq.rfq_number)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626] transition-colors"><Trash2 size={14}/></button>
+                      {rfq.status !== 'Posted' && (
+                        <button onClick={()=>handleEdit(rfq)} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706] transition-colors"><Edit2 size={14}/></button>
+                      )}
                     </div>
                   </td>
                 </tr>

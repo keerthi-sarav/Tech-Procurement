@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Eye, Save, X, Wrench } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Wrench, FileText } from 'lucide-react';
 
 const REASONS = ['Hydro Testing','Valve Repair','Damage Inspection','General Maintenance','Repainting','Visual Inspection'];
 const emptyItem = () => ({serial_number:'', reason:'Hydro Testing'});
@@ -8,13 +8,14 @@ const emptyForm = () => ({
   vendor_name: '',
   date_sent: new Date().toISOString().split('T')[0],
   expected_return_date: '',
-  status: 'Sent',
+  status: 'Draft',
   items: [emptyItem()],
 });
 
 const statusColor = (s) => {
   if (s==='Returned') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s==='Overdue') return 'bg-[#fee2e2] text-[#dc2626]';
+  if (s==='Draft') return 'bg-[#f3f4f6] text-[#6b7280]';
   return 'bg-[#fef3c7] text-[#d97706]';
 };
 
@@ -42,20 +43,17 @@ export default function CylinderTesting() {
   const addItem = () => setForm(f=>({...f, items:[...f.items, emptyItem()]}));
   const removeItem = (i) => setForm(f=>({...f, items:f.items.filter((_,idx)=>idx!==i)}));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setLoading(true);
+  const handleAction = async (actionStatus) => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/cylinder-testing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,items:form.items.filter(it=>it.serial_number)})});
+      const payload = {...form, status: actionStatus, items:form.items.filter(it=>it.serial_number)};
+      const url = mode==='edit'?`/api/cylinder-testing/${form.transaction_id}`:'/api/cylinder-testing';
+      const method = mode==='edit'?'PUT':'POST';
+      const res = await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if (!res.ok) throw new Error(await res.text());
-      await fetchRecords(); showMsg('Testing record saved!'); setMode('list');
+      await fetchRecords(); showMsg(`Testing record ${actionStatus === 'Sent' ? 'posted' : 'saved'}!`); setMode('list');
     } catch(err){showMsg('Error: '+err.message,'error');}
     finally{setLoading(false);}
-  };
-
-  const handleDelete = async (id) => {
-    if (!confirm('Delete?')) return;
-    await fetch(`/api/cylinder-testing/${id}`,{method:'DELETE'});
-    await fetchRecords(); showMsg('Deleted.');
   };
 
   if (mode !== 'list') {
@@ -67,9 +65,21 @@ export default function CylinderTesting() {
             <h2 className="text-xl font-bold text-[#111827]">{readOnly?'Testing Record Details':'Send Cylinders for Testing / Repair'}</h2>
             <p className="text-sm text-[#6b7280] mt-1">Track cylinders sent to testing agency or repair shop</p>
           </div>
-          <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm"><X size={15}/>Back</button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this Record? It cannot be edited later.')) handleAction('Sent'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={()=>setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] text-sm"><X size={15}/>Back</button>
+          </div>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-[#374151] mb-4 flex items-center gap-2"><Wrench size={15} className="text-[#1a56db]"/>Testing Details</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -88,7 +98,7 @@ export default function CylinderTesting() {
               <div><label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
                 <select name="status" value={form.status} onChange={handleField} disabled={readOnly}
                   className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm ${readOnly?'bg-[#f9fafb]':'bg-white'}`}>
-                  {['Sent','In Progress','Returned','Overdue'].map(s=><option key={s}>{s}</option>)}
+                  {['Draft','Sent','In Progress','Returned','Overdue'].map(s=><option key={s}>{s}</option>)}
                 </select></div>
             </div>
           </div>
@@ -126,12 +136,7 @@ export default function CylinderTesting() {
             </table>
           </div>
 
-          {!readOnly&&(<div className="flex justify-end gap-3">
-            <button type="button" onClick={()=>setMode('list')} className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm hover:bg-[#f3f4f6]">Cancel</button>
-            <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] disabled:opacity-60">
-              <Save size={15}/>{loading?'Saving...':'Save Record'}
-            </button>
-          </div>)}
+
         </form>
       </div>
     );
@@ -165,8 +170,10 @@ export default function CylinderTesting() {
                 <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(r.status)}`}>{r.status}</span></td>
                 <td className="px-5 py-3.5">
                   <div className="flex gap-1.5">
-                    <button onClick={()=>{setForm(r);setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
-                    <button onClick={()=>handleDelete(r.transaction_id)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626]"><Trash2 size={14}/></button>
+                    <button onClick={()=>{setForm({...r,items:r.items?.length?r.items:[emptyItem()]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
+                    {r.status === 'Draft' && (
+                      <button onClick={()=>{setForm({...r,items:r.items?.length?r.items:[emptyItem()]});setMode('edit');}} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706]"><Edit2 size={14}/></button>
+                    )}
                   </div>
                 </td>
               </tr>

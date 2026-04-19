@@ -11,13 +11,13 @@ function genPRNumber() {
 }
 
 const statusColor = (s) => {
-  if (s === 'Approved') return 'bg-[#dcfce7] text-[#16a34a]';
+  if (s === 'Approved' || s === 'Posted') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s === 'Rejected') return 'bg-[#fee2e2] text-[#dc2626]';
   return 'bg-[#fef3c7] text-[#d97706]';
 };
 
 const StatusIcon = ({ s }) => {
-  if (s === 'Approved') return <CheckCircle size={13} />;
+  if (s === 'Approved' || s === 'Posted') return <CheckCircle size={13} />;
   if (s === 'Rejected') return <XCircle size={13} />;
   return <Clock size={13} />;
 };
@@ -58,31 +58,24 @@ export default function PurchaseRequisition() {
   const addLine = () => setForm(f => ({ ...f, line_items: [...f.line_items, emptyLine()] }));
   const removeLine = (i) => setForm(f => ({ ...f, line_items: f.line_items.filter((_, idx) => idx !== i) }));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleAction = async (actionStatus) => {
     setLoading(true);
     try {
+      const payload = { ...form, status: actionStatus, line_items: form.line_items.filter(l => l.item_name) };
       const url = mode === 'edit' ? `/api/purchase-requisitions/${form.pr_number}` : '/api/purchase-requisitions';
       const method = mode === 'edit' ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, line_items: form.line_items.filter(l => l.item_name) }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       await fetchPRs();
-      showMsg(mode === 'edit' ? 'PR updated successfully!' : 'PR created successfully!');
+      showMsg(`PR ${actionStatus === 'Posted' ? 'posted' : 'saved'} successfully!`);
       setMode('list');
     } catch (err) {
       showMsg('Error: ' + err.message, 'error');
     } finally { setLoading(false); }
-  };
-
-  const handleDelete = async (pr_number) => {
-    if (!confirm('Delete this PR?')) return;
-    await fetch(`/api/purchase-requisitions/${pr_number}`, { method: 'DELETE' });
-    await fetchPRs();
-    showMsg('PR deleted.');
   };
 
   const handleEdit = (pr) => {
@@ -115,12 +108,24 @@ export default function PurchaseRequisition() {
               {mode === 'view' ? 'Viewing record — read only' : 'Fill in the details below'}
             </p>
           </div>
-          <button onClick={() => setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors text-sm">
-            <X size={15} /> Back to List
-          </button>
+          <div className="flex items-center gap-3">
+            {!readOnly && (
+              <>
+                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15}/> Save
+                </button>
+                <button type="button" onClick={()=>{ if(confirm('Post this PR? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15}/> Post
+                </button>
+              </>
+            )}
+            <button onClick={() => setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors text-sm">
+              <X size={15} /> Back to List
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form className="space-y-5">
           {/* Header card */}
           <div className="bg-white rounded-xl border border-[#e5e7eb] p-6 shadow-sm">
             <h3 className="text-sm font-semibold text-[#374151] mb-4 flex items-center gap-2">
@@ -160,11 +165,7 @@ export default function PurchaseRequisition() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
-                <select name="status" value={form.status} onChange={handleField} disabled={readOnly}
-                  className={`w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm focus:outline-none focus:ring-2 focus:ring-[#1a56db]/30 focus:border-[#1a56db] transition-colors
-                    ${readOnly ? 'bg-[#f9fafb] text-[#6b7280]' : 'bg-white'}`}>
-                  {['Draft','Pending','Approved','Rejected'].map(s => <option key={s}>{s}</option>)}
-                </select>
+                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]"/>
               </div>
             </div>
             <div className="mt-4">
@@ -234,18 +235,7 @@ export default function PurchaseRequisition() {
             </div>
           </div>
 
-          {!readOnly && (
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={() => setMode('list')}
-                className="px-5 py-2.5 border border-[#e5e7eb] rounded-lg text-sm text-[#374151] hover:bg-[#f3f4f6] transition-colors">
-                Cancel
-              </button>
-              <button type="submit" disabled={loading}
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
-                <Save size={15} /> {loading ? 'Saving...' : mode === 'edit' ? 'Update PR' : 'Create PR'}
-              </button>
-            </div>
-          )}
+
         </form>
       </div>
     );
@@ -306,12 +296,11 @@ export default function PurchaseRequisition() {
                       <button onClick={() => handleView(pr)} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db] transition-colors" title="View">
                         <Eye size={14} />
                       </button>
-                      <button onClick={() => handleEdit(pr)} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706] transition-colors" title="Edit">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(pr.pr_number)} className="p-1.5 rounded-lg hover:bg-[#fee2e2] text-[#dc2626] transition-colors" title="Delete">
-                        <Trash2 size={14} />
-                      </button>
+                      {pr.status !== 'Posted' && (
+                        <button onClick={() => handleEdit(pr)} className="p-1.5 rounded-lg hover:bg-[#fef3c7] text-[#d97706] transition-colors" title="Edit">
+                          <Edit2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
