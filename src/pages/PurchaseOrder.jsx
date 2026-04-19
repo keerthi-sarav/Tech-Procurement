@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, Package, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 function genPO() { return `PO-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
 
@@ -134,6 +135,8 @@ export default function PurchaseOrder() {
   };
 
   const filtered = pos.filter(p=>p.po_number?.toLowerCase().includes(search.toLowerCase())||p.vendor_name?.toLowerCase().includes(search.toLowerCase()));
+
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(filtered);
 
   if (mode !== 'list') {
     const readOnly = mode==='view';
@@ -270,14 +273,20 @@ export default function PurchaseOrder() {
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-              <tr>{['PO Number','Vendor','PO Date','Delivery Date','Total (₹)','Status','Actions'].map(h=>(
-                <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap">{h}</th>
-              ))}</tr>
+            <thead className="border-b border-[#e5e7eb]">
+              <tr>
+                <SortableHeader label="PO Number"     sortKey="po_number"       sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Vendor"        sortKey="vendor_name"     sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="PO Date"       sortKey="po_date"         sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Delivery Date" sortKey="delivery_date"   sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Total (₹)"     sortKey="total_amount"    sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Status"        sortKey="approval_status" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap bg-[#f9fafb]">Actions</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb]">
-              {filtered.length===0&&(<tr><td colSpan={7} className="text-center py-12 text-[#6b7280] text-sm">No purchase orders found.</td></tr>)}
-              {filtered.map(po=>(
+              {displayList.length===0&&(<tr><td colSpan={7} className="text-center py-12 text-[#6b7280] text-sm">No purchase orders found.</td></tr>)}
+              {displayList.map(po=>(
                 <tr key={po.po_number} className="hover:bg-[#f9fafb] transition-colors">
                   <td className="px-5 py-3.5 font-medium text-[#1a56db]">{po.po_number}</td>
                   <td className="px-5 py-3.5 text-[#374151]">{po.vendor_name}</td>

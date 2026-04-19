@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, Hash, Search } from 'lucide-react';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const CYLINDER_TYPES = ['Oxygen','CO2','Nitrogen','Argon','LPG','Acetylene','Hydrogen'];
 const STATUS_OPTIONS = ['Active','In Testing','Scrapped','Returned'];
@@ -63,6 +64,8 @@ export default function CylinderSerialNumber() {
     const matchStatus = !filterStatus || r.status===filterStatus;
     return matchSearch && matchStatus;
   });
+
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(filtered);
 
   if (mode !== 'list') {
     const readOnly = mode==='view';
@@ -179,14 +182,21 @@ export default function CylinderSerialNumber() {
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-              <tr>{['Serial Number','Barcode','Type','Capacity','Mfg Date','Test Due','Status','Actions'].map(h=>(
-                <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap">{h}</th>
-              ))}</tr>
+            <thead className="border-b border-[#e5e7eb]">
+              <tr>
+                <SortableHeader label="Serial Number" sortKey="serial_number" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5 font-mono"/>
+                <SortableHeader label="Barcode"       sortKey="barcode"       sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5 font-mono"/>
+                <SortableHeader label="Type"          sortKey="cylinder_type" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Capacity"      sortKey="capacity"      sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Mfg Date"      sortKey="manufacturing_date" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Test Due"      sortKey="test_due_date"  sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Status"        sortKey="status"         sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Actions</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb]">
-              {filtered.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinders registered.</td></tr>)}
-              {filtered.map(r=>(
+              {displayList.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinders registered.</td></tr>)}
+              {displayList.map(r=>(
                 <tr key={r.serial_number} className="hover:bg-[#f9fafb]">
                   <td className="px-5 py-3.5 font-mono font-medium text-[#1a56db] text-xs">{r.serial_number}</td>
                   <td className="px-5 py-3.5 text-[#6b7280] text-xs font-mono">{r.barcode||'—'}</td>

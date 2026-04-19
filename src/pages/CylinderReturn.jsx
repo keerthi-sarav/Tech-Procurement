@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, RotateCcw, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const emptyItem = () => ({serial_number:'', status:'Passed', next_test_due_date:'', repair_cost:0});
 const emptyForm = () => ({
@@ -46,6 +47,8 @@ export default function CylinderReturn() {
     } catch(err){showMsg('Error: '+err.message,'error');}
     finally{setLoading(false);}
   };
+
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(records);
 
   if (mode !== 'list') {
     const readOnly = mode==='view';
@@ -158,14 +161,21 @@ export default function CylinderReturn() {
       </div>
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-            <tr>{['Return ID','Vendor / Agency','Date Received','Cylinders','Passed','Failed','Status','Actions'].map(h=>(
-              <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap">{h}</th>
-            ))}</tr>
+          <thead className="border-b border-[#e5e7eb]">
+            <tr>
+              <SortableHeader label="Return ID"      sortKey="return_id"     sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Vendor / Agency" sortKey="vendor_name"   sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Date Received"  sortKey="date_received" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Cylinders</th>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Passed</th>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Failed</th>
+              <SortableHeader label="Status"         sortKey="status"        sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Actions</th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e7eb]">
-            {records.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinder returns recorded.</td></tr>)}
-            {records.map(r=>{
+            {displayList.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinder returns recorded.</td></tr>)}
+            {displayList.map(r=>{
               const passed = r.items?.filter(it=>it.status==='Passed').length||0;
               const failed = r.items?.filter(it=>it.status==='Failed').length||0;
               return (

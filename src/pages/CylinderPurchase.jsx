@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 function genCPID() { return `CP-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
 
@@ -69,6 +70,8 @@ export default function CylinderPurchase() {
   };
 
   // Removed handleDelete in favor of Save/Post workflow
+
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(records);
 
   if (mode !== 'list') {
     const readOnly = mode==='view';
@@ -159,14 +162,21 @@ export default function CylinderPurchase() {
       </div>
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-            <tr>{['Purchase ID','Vendor','Date','Invoice #','Total (₹)','Items','Status','Actions'].map(h=>(
-              <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap">{h}</th>
-            ))}</tr>
+          <thead className="border-b border-[#e5e7eb]">
+            <tr>
+              <SortableHeader label="Purchase ID" sortKey="purchase_id"   sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Vendor"      sortKey="vendor_name"   sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Date"        sortKey="purchase_date" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Invoice #"   sortKey="invoice_number" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Total (₹)"   sortKey="total_amount"  sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Items</th>
+              <SortableHeader label="Status"      sortKey="status"        sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Actions</th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e7eb]">
-            {records.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinder purchases yet.</td></tr>)}
-            {records.map(r=>(
+            {displayList.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280]">No cylinder purchases yet.</td></tr>)}
+            {displayList.map(r=>(
               <tr key={r.purchase_id} className="hover:bg-[#f9fafb]">
                 <td className="px-5 py-3.5 font-medium text-[#1a56db]">{r.purchase_id}</td>
                 <td className="px-5 py-3.5 text-[#374151]">{r.vendor_name}</td>

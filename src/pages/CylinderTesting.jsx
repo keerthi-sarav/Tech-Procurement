@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, Wrench, FileText } from 'lucide-react';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const REASONS = ['Hydro Testing','Valve Repair','Damage Inspection','General Maintenance','Repainting','Visual Inspection'];
 const emptyItem = () => ({serial_number:'', reason:'Hydro Testing'});
@@ -55,6 +56,8 @@ export default function CylinderTesting() {
     } catch(err){showMsg('Error: '+err.message,'error');}
     finally{setLoading(false);}
   };
+
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(records);
 
   if (mode !== 'list') {
     const readOnly = mode==='view';
@@ -153,14 +156,20 @@ export default function CylinderTesting() {
       </div>
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-            <tr>{['Transaction ID','Vendor / Agency','Date Sent','Expected Return','Cylinders','Status','Actions'].map(h=>(
-              <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap">{h}</th>
-            ))}</tr>
+          <thead className="border-b border-[#e5e7eb]">
+            <tr>
+              <SortableHeader label="Transaction ID"  sortKey="transaction_id"      sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Vendor / Agency" sortKey="vendor_name"          sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Date Sent"       sortKey="date_sent"            sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <SortableHeader label="Expected Return" sortKey="expected_return_date" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Cylinders</th>
+              <SortableHeader label="Status"          sortKey="status"               sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase whitespace-nowrap bg-[#f9fafb]">Actions</th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e7eb]">
-            {records.length===0&&(<tr><td colSpan={7} className="text-center py-12 text-[#6b7280]">No testing records yet.</td></tr>)}
-            {records.map(r=>(
+            {displayList.length===0&&(<tr><td colSpan={7} className="text-center py-12 text-[#6b7280]">No testing records yet.</td></tr>)}
+            {displayList.map(r=>(
               <tr key={r.transaction_id} className="hover:bg-[#f9fafb]">
                 <td className="px-5 py-3.5 font-medium text-[#1a56db] text-xs">{r.transaction_id}</td>
                 <td className="px-5 py-3.5 text-[#374151]">{r.vendor_name}</td>

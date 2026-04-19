@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const DEPTS = ['Production', 'Quality Control', 'Maintenance', 'Admin', 'Finance', 'Stores', 'Safety'];
 const UOMS = ['Nos', 'Kg', 'Ltr', 'Mtr', 'Box', 'Set', 'Pair', 'Service'];
 
 function genPRNumber() {
   const d = new Date();
-  return `PR-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(Math.floor(Math.random()*9000)+1000)}`;
+  return `PR-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 }
 
 const statusColor = (s) => {
@@ -42,7 +43,7 @@ export default function PurchaseRequisition() {
   const [msg, setMsg] = useState(null);
   const [search, setSearch] = useState('');
 
-  const showMsg = (text, type='success') => {
+  const showMsg = (text, type = 'success') => {
     setMsg({ text, type });
     setTimeout(() => setMsg(null), 3000);
   };
@@ -94,6 +95,8 @@ export default function PurchaseRequisition() {
     p.department?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(filtered);
+
   if (mode !== 'list') {
     const readOnly = mode === 'view';
     return (
@@ -111,16 +114,16 @@ export default function PurchaseRequisition() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
-                  <Save size={15}/> Save
+                <button type="button" onClick={() => handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={15} /> Save
                 </button>
-                <button type="button" onClick={()=>{ if(confirm('Post this PR? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
-                  <FileText size={15}/> Post
+                <button type="button" onClick={() => { if (confirm('Post this PR? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={15} /> Post
                 </button>
               </>
             )}
             <button onClick={() => setMode('list')} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#e5e7eb] text-[#374151] hover:bg-[#f3f4f6] transition-colors text-sm">
-              <X size={15} /> Back to List
+              <X size={15} /> Back
             </button>
           </div>
         </div>
@@ -165,7 +168,7 @@ export default function PurchaseRequisition() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6b7280] mb-1">Status</label>
-                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]"/>
+                <input value={form.status} readOnly className="w-full px-3 py-2 rounded-lg border border-[#e5e7eb] text-sm bg-[#f9fafb] text-[#6b7280]" />
               </div>
             </div>
             <div className="mt-4">
@@ -192,7 +195,7 @@ export default function PurchaseRequisition() {
               <table className="w-full text-sm">
                 <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
                   <tr>
-                    {['#','Item Code','Item Name','Qty Required','UOM','Remarks',''].map(h => (
+                    {['#', 'Item Code', 'Item Name', 'Qty Required', 'UOM', 'Remarks', ''].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-[#6b7280] uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -200,26 +203,26 @@ export default function PurchaseRequisition() {
                 <tbody className="divide-y divide-[#e5e7eb]">
                   {form.line_items.map((line, i) => (
                     <tr key={i} className="hover:bg-[#f9fafb]">
-                      <td className="px-4 py-2 text-[#6b7280] text-xs">{i+1}</td>
-                      {['item_code','item_name'].map(f => (
+                      <td className="px-4 py-2 text-[#6b7280] text-xs">{i + 1}</td>
+                      {['item_code', 'item_name'].map(f => (
                         <td key={f} className="px-4 py-2">
-                          <input name={f} value={line[f]} onChange={e => handleLine(i,e)} readOnly={readOnly}
-                            className={`w-full px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none focus:ring-1 focus:ring-[#1a56db]/40 ${readOnly?'bg-transparent border-transparent':''}`} />
+                          <input name={f} value={line[f]} onChange={e => handleLine(i, e)} readOnly={readOnly}
+                            className={`w-full px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none focus:ring-1 focus:ring-[#1a56db]/40 ${readOnly ? 'bg-transparent border-transparent' : ''}`} />
                         </td>
                       ))}
                       <td className="px-4 py-2">
-                        <input name="quantity_required" type="number" value={line.quantity_required} onChange={e => handleLine(i,e)} readOnly={readOnly}
-                          className={`w-24 px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none focus:ring-1 focus:ring-[#1a56db]/40 ${readOnly?'bg-transparent border-transparent':''}`} />
+                        <input name="quantity_required" type="number" value={line.quantity_required} onChange={e => handleLine(i, e)} readOnly={readOnly}
+                          className={`w-24 px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none focus:ring-1 focus:ring-[#1a56db]/40 ${readOnly ? 'bg-transparent border-transparent' : ''}`} />
                       </td>
                       <td className="px-4 py-2">
-                        <select name="uom" value={line.uom} onChange={e => handleLine(i,e)} disabled={readOnly}
-                          className={`px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none ${readOnly?'bg-transparent border-transparent':''}`}>
+                        <select name="uom" value={line.uom} onChange={e => handleLine(i, e)} disabled={readOnly}
+                          className={`px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none ${readOnly ? 'bg-transparent border-transparent' : ''}`}>
                           {UOMS.map(u => <option key={u}>{u}</option>)}
                         </select>
                       </td>
                       <td className="px-4 py-2">
-                        <input name="remarks" value={line.remarks || ''} onChange={e => handleLine(i,e)} readOnly={readOnly}
-                          className={`w-full px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none ${readOnly?'bg-transparent border-transparent':''}`} />
+                        <input name="remarks" value={line.remarks || ''} onChange={e => handleLine(i, e)} readOnly={readOnly}
+                          className={`w-full px-2 py-1.5 rounded border border-[#e5e7eb] text-sm focus:outline-none ${readOnly ? 'bg-transparent border-transparent' : ''}`} />
                       </td>
                       <td className="px-4 py-2">
                         {!readOnly && form.line_items.length > 1 && (
@@ -267,18 +270,23 @@ export default function PurchaseRequisition() {
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
+            <thead className="border-b border-[#e5e7eb]">
               <tr>
-                {['PR Number','Date','Requested By','Department','Required Date','Status','Items','Actions'].map(h => (
-                  <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
+                <SortableHeader label="PR Number" sortKey="pr_number" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5" />
+                <SortableHeader label="Date" sortKey="pr_date" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5" />
+                <SortableHeader label="Requested By" sortKey="requested_by" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5" />
+                <SortableHeader label="Department" sortKey="department" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5" />
+                <SortableHeader label="Required Date" sortKey="required_date" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5" />
+                <SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5" />
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap bg-[#f9fafb]">Items</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap bg-[#f9fafb]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb]">
-              {filtered.length === 0 && (
+              {displayList.length === 0 && (
                 <tr><td colSpan={8} className="text-center py-12 text-[#6b7280] text-sm">No purchase requisitions found. Create your first PR.</td></tr>
               )}
-              {filtered.map(pr => (
+              {displayList.map(pr => (
                 <tr key={pr.pr_number} className="hover:bg-[#f9fafb] transition-colors">
                   <td className="px-5 py-3.5 font-medium text-[#1a56db]">{pr.pr_number}</td>
                   <td className="px-5 py-3.5 text-[#374151]">{pr.pr_date}</td>

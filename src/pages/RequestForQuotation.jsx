@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Eye, Save, X, ShoppingCart, CheckSquare, FileText } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
+import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const UOMS = ['Nos', 'Kg', 'Ltr', 'Mtr', 'Box', 'Set', 'Pair', 'Service'];
 
@@ -95,6 +96,8 @@ export default function RequestForQuotation() {
     r.rfq_number?.toLowerCase().includes(search.toLowerCase()) ||
     r.pr_number?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const { sorted: displayList, sortConfig, requestSort } = useSortableTable(filtered);
 
   if (mode !== 'list') {
     const readOnly = mode === 'view';
@@ -243,14 +246,21 @@ export default function RequestForQuotation() {
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[#f9fafb] border-b border-[#e5e7eb]">
-              <tr>{['RFQ Number','Date','PR Reference','Validity Date','Vendors','Status','Items','Actions'].map(h=>(
-                <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap">{h}</th>
-              ))}</tr>
+            <thead className="border-b border-[#e5e7eb]">
+              <tr>
+                <SortableHeader label="RFQ Number"   sortKey="rfq_number"   sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Date"          sortKey="rfq_date"     sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="PR Reference"  sortKey="pr_number"    sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <SortableHeader label="Validity Date" sortKey="validity_date" sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap bg-[#f9fafb]">Vendors</th>
+                <SortableHeader label="Status"        sortKey="status"        sortConfig={sortConfig} onSort={requestSort} className="px-5 py-3.5"/>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap bg-[#f9fafb]">Items</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[#6b7280] uppercase tracking-wide whitespace-nowrap bg-[#f9fafb]">Actions</th>
+              </tr>
             </thead>
             <tbody className="divide-y divide-[#e5e7eb]">
-              {filtered.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280] text-sm">No RFQs found. Create your first RFQ.</td></tr>)}
-              {filtered.map(rfq=>(
+              {displayList.length===0&&(<tr><td colSpan={8} className="text-center py-12 text-[#6b7280] text-sm">No RFQs found. Create your first RFQ.</td></tr>)}
+              {displayList.map(rfq=>(
                 <tr key={rfq.rfq_number} className="hover:bg-[#f9fafb] transition-colors">
                   <td className="px-5 py-3.5 font-medium text-[#1a56db]">{rfq.rfq_number}</td>
                   <td className="px-5 py-3.5 text-[#374151]">{rfq.rfq_date}</td>
