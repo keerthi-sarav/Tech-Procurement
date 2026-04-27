@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, Truck, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Truck, FileText, CheckCircle, Clock } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 function genGRN() { return `GRN-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
 
 const emptyLine = () => ({item_code:'',item_name:'',ordered_qty:0,received_qty:0,rejected_qty:0,accepted_qty:0,uom:'Nos',remarks:''});
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Posted' || s === 'Received') return <CheckCircle size={13} />;
+  return <Clock size={13} />;
+};
 const emptyForm = () => ({
   grn_number: genGRN(),
   po_number: '',
@@ -103,7 +108,7 @@ export default function GoodsReceiptNote() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={()=>handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15}/> Save
                 </button>
                 <button type="button" onClick={()=>{ if(confirm('Post this GRN? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
@@ -228,7 +233,11 @@ export default function GoodsReceiptNote() {
                   <td className="px-5 py-3.5 text-[#374151]">{g.receipt_date}</td>
                   <td className="px-5 py-3.5 text-[#6b7280]">{g.warehouse_location||'—'}</td>
                   <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${g.qc_required==='Yes'?'bg-[#fef3c7] text-[#d97706]':'bg-[#f3f4f6] text-[#6b7280]'}`}>{g.qc_required}</span></td>
-                  <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${g.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#fef3c7] text-[#d97706]'}`}>{g.status || 'Received'}</span></td>
+                  <td className="px-5 py-3.5">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${g.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#e8f0fe] text-[#1a56db]'}`}>
+                      <StatusIcon s={g.status || 'Received'} /> {g.status || 'Received'}
+                    </span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">
                       <button onClick={()=>{setForm({...g,line_items:g.line_items||[]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]" title="View"><Eye size={14}/></button>

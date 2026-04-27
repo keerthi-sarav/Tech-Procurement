@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, RotateCcw, CheckCircle, XCircle, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, RotateCcw, CheckCircle, XCircle, FileText, Clock } from 'lucide-react';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const emptyItem = () => ({serial_number:'', status:'Passed', next_test_due_date:'', repair_cost:0});
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Posted') return <CheckCircle size={13} />;
+  return <Clock size={13} />;
+};
+
 const emptyForm = () => ({
   return_id: `CR-${Date.now().toString().slice(-8)}`,
   vendor_name: '',
@@ -62,7 +68,7 @@ export default function CylinderReturn() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={()=>handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15}/> Save
                 </button>
                 <button type="button" onClick={()=>{ if(confirm('Post this Return? Cylinder statuses will update and it cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
@@ -187,8 +193,8 @@ export default function CylinderReturn() {
                   <td className="px-5 py-3.5"><span className="inline-flex items-center gap-1 text-[#16a34a] font-medium text-xs"><CheckCircle size={12}/>{passed}</span></td>
                   <td className="px-5 py-3.5"><span className="inline-flex items-center gap-1 text-[#dc2626] font-medium text-xs"><XCircle size={12}/>{failed}</span></td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${r.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#fef3c7] text-[#d97706]'}`}>
-                      {r.status || 'Draft'}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${r.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#e8f0fe] text-[#1a56db]'}`}>
+                      <StatusIcon s={r.status || 'Draft'} /> {r.status || 'Draft'}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">

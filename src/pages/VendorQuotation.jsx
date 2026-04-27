@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Star, TrendingDown, RefreshCw, Save, X, FileText } from 'lucide-react';
+import { Plus, Trash2, Star, TrendingDown, RefreshCw, Save, X, FileText, Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 function genQuoteNum() {
   return `QT-${Date.now().toString().slice(-6)}`;
 }
+
+const statusColor = (s) => {
+  if (s === 'Posted') return 'bg-[#dcfce7] text-[#16a34a]';
+  return 'bg-[#e8f0fe] text-[#1a56db]';
+};
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Posted') return <CheckCircle size={13} />;
+  return <Clock size={13} />;
+};
 
 const emptyForm = (rfq_number = '', vendor_id = '', vendor_name = '') => ({
   quote_number: genQuoteNum(),
@@ -145,9 +155,16 @@ export default function VendorQuotation() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-[#374151]">New Vendor Quotation</h3>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => { if (confirm('Post this Quotation? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
-                <FileText size={14} /> Post
-              </button>
+              {form.status !== 'Posted' && (
+                <button type="button" onClick={() => handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                  <Save size={14} /> Save
+                </button>
+              )}
+              {form.status !== 'Posted' && (
+                <button type="button" onClick={() => { if (confirm('Post this Quotation? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
+                  <FileText size={14} /> Post
+                </button>
+              )}
               <button type="button" onClick={() => setShowForm(false)} className="flex items-center gap-2 px-4 py-2 border border-[#e5e7eb] text-[#374151] rounded-lg text-sm font-medium hover:bg-[#f9fafb] transition-colors">
                 <X size={15} /> Back
               </button>
@@ -222,7 +239,7 @@ export default function VendorQuotation() {
       )}
 
       {/* Comparison View */}
-      {selRFQ && compareData.length > 0 && (
+      {(!showForm) && selRFQ && compareData.length > 0 && (
         <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden mb-5">
           <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center gap-2">
             <TrendingDown size={16} className="text-[#1a56db]" />
@@ -277,6 +294,7 @@ export default function VendorQuotation() {
       )}
 
       {/* All Quotations Table */}
+      {!showForm && (
       <div className="bg-white rounded-xl border border-[#e5e7eb] shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-[#e5e7eb]">
           <h3 className="text-sm font-semibold text-[#374151]">All Quotations ({quotes.length})</h3>
@@ -308,11 +326,11 @@ export default function VendorQuotation() {
                   <td className="px-4 py-3 text-[#374151]">₹{parseFloat(q.total_amount || 0).toFixed(2)}</td>
                   <td className="px-4 py-3 text-[#6b7280]">{q.delivery_days}d</td>
                   <td className="px-4 py-3">
-                    {q.is_selected ? (<span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#e8f0fe] text-[#1a56db] rounded-full text-xs font-medium"><Star size={10} /> Selected</span>) :
-                      (<span className="text-[#6b7280] text-xs">—</span>)}
+                    {q.is_selected ? (<span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#e8f0fe] text-[#1a56db] rounded-full text-xs font-medium mr-2"><Star size={10} /> Selected</span>) : null}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(q.status)}`}><StatusIcon s={q.status || 'Draft'} /> {q.status || 'Draft'}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-[#6b7280] text-xs">{q.status || 'Draft'}</span>
+                    <button onClick={() => { setForm({...q, total_amount: q.total_amount || 0}); setShowForm(true); }} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]" title="View Quotation"><Eye size={14} /></button>
                   </td>
                 </tr>
               ))}
@@ -320,6 +338,7 @@ export default function VendorQuotation() {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

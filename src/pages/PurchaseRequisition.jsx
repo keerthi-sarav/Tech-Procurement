@@ -14,7 +14,7 @@ function genPRNumber() {
 const statusColor = (s) => {
   if (s === 'Approved' || s === 'Posted') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s === 'Rejected') return 'bg-[#fee2e2] text-[#dc2626]';
-  return 'bg-[#fef3c7] text-[#d97706]';
+  return 'bg-[#e8f0fe] text-[#1a56db]';
 };
 
 const StatusIcon = ({ s }) => {
@@ -114,7 +114,7 @@ export default function PurchaseRequisition() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={() => handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={() => handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15} /> Save
                 </button>
                 <button type="button" onClick={() => { if (confirm('Post this PR? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">

@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, Wrench, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Wrench, FileText, CheckCircle, Clock } from 'lucide-react';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const REASONS = ['Hydro Testing','Valve Repair','Damage Inspection','General Maintenance','Repainting','Visual Inspection'];
 const emptyItem = () => ({serial_number:'', reason:'Hydro Testing'});
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Returned' || s === 'Posted') return <CheckCircle size={13} />;
+  return <Clock size={13} />;
+};
 const emptyForm = () => ({
   transaction_id: `CT-${Date.now().toString().slice(-8)}`,
   vendor_name: '',
@@ -17,7 +22,7 @@ const statusColor = (s) => {
   if (s==='Returned') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s==='Overdue') return 'bg-[#fee2e2] text-[#dc2626]';
   if (s==='Draft') return 'bg-[#f3f4f6] text-[#6b7280]';
-  return 'bg-[#fef3c7] text-[#d97706]';
+  return 'bg-[#e8f0fe] text-[#1a56db]';
 };
 
 export default function CylinderTesting() {
@@ -71,7 +76,7 @@ export default function CylinderTesting() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={()=>handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15}/> Save
                 </button>
                 <button type="button" onClick={()=>{ if(confirm('Post this Record? It cannot be edited later.')) handleAction('Sent'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
@@ -176,7 +181,11 @@ export default function CylinderTesting() {
                 <td className="px-5 py-3.5 text-[#374151]">{r.date_sent}</td>
                 <td className="px-5 py-3.5 text-[#374151]">{r.expected_return_date||'—'}</td>
                 <td className="px-5 py-3.5 text-[#6b7280]">{r.items?.length||0} cylinders</td>
-                <td className="px-5 py-3.5"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(r.status)}`}>{r.status}</span></td>
+                <td className="px-5 py-3.5">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(r.status)}`}>
+                    <StatusIcon s={r.status} /> {r.status}
+                  </span>
+                </td>
                 <td className="px-5 py-3.5">
                   <div className="flex gap-1.5">
                     <button onClick={()=>{setForm({...r,items:r.items?.length?r.items:[emptyItem()]});setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>

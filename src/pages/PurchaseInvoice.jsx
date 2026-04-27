@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, Receipt, CreditCard, CheckCircle, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Receipt, CreditCard, CheckCircle, FileText, Clock } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 function genInvNum() { return `INV-${new Date().getFullYear()}-${String(Math.floor(Math.random()*90000)+10000)}`; }
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Posted') return <CheckCircle size={13} />;
+  return <Clock size={13} />;
+};
 
 const emptyForm = () => ({
   invoice_number: genInvNum(),
@@ -122,7 +127,7 @@ export default function PurchaseInvoice() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={()=>handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15}/> Save
                 </button>
                 <button type="button" onClick={()=>{ if(confirm('Post this Invoice? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
@@ -222,8 +227,8 @@ export default function PurchaseInvoice() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${inv.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#fef3c7] text-[#d97706]'}`}>
-                      {inv.status || 'Draft'}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${inv.status === 'Posted'?'bg-[#dcfce7] text-[#16a34a]':'bg-[#e8f0fe] text-[#1a56db]'}`}>
+                      <StatusIcon s={inv.status} /> {inv.status || 'Draft'}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">

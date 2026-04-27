@@ -8,7 +8,13 @@ function genPO() { return `PO-${new Date().getFullYear()}-${String(Math.floor(Ma
 const statusColor = (s) => {
   if (s==='Approved' || s==='Posted') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s==='Rejected') return 'bg-[#fee2e2] text-[#dc2626]';
-  return 'bg-[#fef3c7] text-[#d97706]';
+  return 'bg-[#e8f0fe] text-[#1a56db]';
+};
+
+const StatusIcon = ({ s }) => {
+  if (s==='Approved' || s==='Posted') return <CheckCircle size={13} />;
+  if (s==='Rejected') return <XCircle size={13} />;
+  return <Clock size={13} />;
 };
 
 const emptyLine = () => ({item_code:'',item_name:'',quantity:1,uom:'Nos',rate:0,tax_percent:0,discount_percent:0,total_amount:0});
@@ -150,7 +156,7 @@ export default function PurchaseOrder() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.approval_status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={()=>handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15}/> Save
                 </button>
                 <button type="button" onClick={()=>{ if(confirm('Post this PO? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
@@ -294,8 +300,8 @@ export default function PurchaseOrder() {
                   <td className="px-5 py-3.5 text-[#374151]">{po.delivery_date}</td>
                   <td className="px-5 py-3.5 font-semibold text-[#374151]">₹{parseFloat(po.total_amount||0).toFixed(2)}</td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(po.approval_status)}`}>
-                      {po.approval_status}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(po.approval_status)}`}>
+                      <StatusIcon s={po.approval_status} /> {po.approval_status}
                     </span>
                   </td>
                   <td className="px-5 py-3.5">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, ShoppingCart, CheckSquare, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, ShoppingCart, CheckSquare, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useProcurement } from '../context/ProcurementContext';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
@@ -25,6 +25,12 @@ const statusColor = (s) => {
   if (s === 'Posted' || s === 'Closed') return 'bg-[#dcfce7] text-[#16a34a]';
   if (s === 'Cancelled') return 'bg-[#fee2e2] text-[#dc2626]';
   return 'bg-[#e8f0fe] text-[#1a56db]';
+};
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Posted' || s === 'Closed') return <CheckCircle size={13} />;
+  if (s === 'Cancelled') return <XCircle size={13} />;
+  return <Clock size={13} />;
 };
 
 export default function RequestForQuotation() {
@@ -112,7 +118,7 @@ export default function RequestForQuotation() {
           <div className="flex items-center gap-3">
             {!readOnly && (
               <>
-                <button type="button" onClick={()=>handleAction(form.status)} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
+                <button type="button" onClick={()=>handleAction('Saved')} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#1a56db] text-white rounded-lg text-sm font-medium hover:bg-[#1e429f] transition-colors disabled:opacity-60">
                   <Save size={15}/> Save
                 </button>
                 <button type="button" onClick={()=>{ if(confirm('Post this RFQ? It cannot be edited later.')) handleAction('Posted'); }} disabled={loading} className="flex items-center gap-2 px-5 py-2.5 bg-[#059669] text-white rounded-lg text-sm font-medium hover:bg-[#047857] transition-colors disabled:opacity-60">
@@ -267,7 +273,11 @@ export default function RequestForQuotation() {
                   <td className="px-5 py-3.5 text-[#374151]">{rfq.pr_number||'—'}</td>
                   <td className="px-5 py-3.5 text-[#374151]">{rfq.validity_date}</td>
                   <td className="px-5 py-3.5 text-[#6b7280]">{rfq.vendor_ids?.length||0} vendors</td>
-                  <td className="px-5 py-3.5"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(rfq.status)}`}>{rfq.status}</span></td>
+                  <td className="px-5 py-3.5">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(rfq.status)}`}>
+                      <StatusIcon s={rfq.status} /> {rfq.status}
+                    </span>
+                  </td>
                   <td className="px-5 py-3.5 text-[#6b7280]">{rfq.line_items?.length||0} items</td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1.5">

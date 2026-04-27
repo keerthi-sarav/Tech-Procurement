@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Eye, Save, X, Hash, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Eye, Save, X, Hash, Search, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useSortableTable, SortableHeader } from '../hooks/useSortableTable';
 
 const CYLINDER_TYPES = ['Oxygen','CO2','Nitrogen','Argon','LPG','Acetylene','Hydrogen'];
 const STATUS_OPTIONS = ['Active','In Testing','Scrapped','Returned'];
 const CAPACITY_UNITS = ['Kg','Ltr','m³'];
+
+const StatusIcon = ({ s }) => {
+  if (s === 'Active' || s === 'Completed' || s === 'Passed' || s === 'Posted') return <CheckCircle size={13} />;
+  if (s === 'Scrapped' || s === 'Overdue') return <XCircle size={13} />;
+  return <Clock size={13} />;
+};
 
 const emptyForm = () => ({
   serial_number: '',
@@ -204,7 +210,11 @@ export default function CylinderSerialNumber() {
                   <td className="px-5 py-3.5 text-[#374151]">{r.capacity} {r.capacity_unit}</td>
                   <td className="px-5 py-3.5 text-[#374151]">{r.manufacturing_date||'—'}</td>
                   <td className="px-5 py-3.5 text-[#374151]">{r.test_due_date||'—'}</td>
-                  <td className="px-5 py-3.5"><span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(r.status)}`}>{r.status}</span></td>
+                  <td className="px-5 py-3.5">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusColor(r.status)}`}>
+                      <StatusIcon s={r.status} /> {r.status}
+                    </span>
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex gap-1.5">
                       <button onClick={()=>{setForm(r);setMode('view');}} className="p-1.5 rounded-lg hover:bg-[#e8f0fe] text-[#1a56db]"><Eye size={14}/></button>
